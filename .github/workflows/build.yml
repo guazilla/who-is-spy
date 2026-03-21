@@ -6,6 +6,8 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     
     steps:
     - uses: actions/checkout@v4
@@ -42,7 +44,11 @@ jobs:
         $distDir = "dist\WhoIsSpy"
         Copy-Item -Path "game" -Destination "$distDir\game" -Recurse -Force
         Copy-Item -Path "gui" -Destination "$distDir\gui" -Recurse -Force
-        Copy-Item -Path "config.json" -Destination $distDir -Force
+        if (Test-Path "config.json") {
+            Copy-Item -Path "config.json" -Destination $distDir -Force
+        } elseif (Test-Path "config.json.example") {
+            Copy-Item -Path "config.json.example" -Destination "$distDir\config.json" -Force
+        }
         
     - name: Clean Up Unnecessary Files
       shell: powershell
