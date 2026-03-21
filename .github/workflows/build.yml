@@ -89,7 +89,7 @@ jobs:
         Expand-Archive -Path $output -DestinationPath "pystand_temp" -Force
         
         # Look for x64 GUI version of PyStand (hides console window)
-        $pystandExe = Get-ChildItem -Path "pystand_temp" -Recurse -Filter "PyStand.exe" | Where-Object { $_.Directory.Name -like "*win64-GUI*" } | Select-Object -First 1
+        $pystandExe = Get-ChildItem -Path "pystand_temp" -Recurse -Filter "PyStand.exe" | Where-Object { $_.Directory.Name -like "*x64-GUI*" } | Select-Object -First 1
         
         if (-not $pystandExe) {
             Write-Error "Could not find 64-bit GUI PyStand.exe in the downloaded archive."
