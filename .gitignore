@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
+
+# Build
+build/
+dist/
+*.exe
+
+# Logs
+logs/*.txt
+/example
+
+# Sensitive/Internal Data
+config.json
+config.json.bak
+GEMINI.md
+
+# System files
+.DS_Store

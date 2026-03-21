@@ -1,0 +1,108 @@
+name: Build PyStand Distribution (64-bit)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python (64-bit)
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11.9' 
+        architecture: 'x64'
+        cache: 'pip' 
+        
+    - name: Prepare Runtime Environment
+      shell: powershell
+      run: |
+        $ErrorActionPreference = "Stop"
+        New-Item -ItemType Directory -Force -Path dist\WhoIsSpy\runtime
+        
+        Write-Host "Downloading Python Embedded (64-bit)..."
+        curl.exe -L -f -s -S -o "python-embed.zip" "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip"
+        Expand-Archive -Path "python-embed.zip" -DestinationPath dist\WhoIsSpy\runtime
+        
+        $pthFile = "dist\WhoIsSpy\runtime\python311._pth"
+        $content = Get-Content $pthFile
+        $content = $content -replace "#import site", "import site"
+        $content | Set-Content $pthFile
+        
+        Write-Host "Installing dependencies..."
+        # Install PyQt6 and other requirements. We don't use --no-deps here because PyQt6 needs its internal Qt dependencies.
+        pip install -r requirements.txt --target dist\WhoIsSpy\runtime\site-packages --no-compile
+        
+    - name: Copy Application Source
+      shell: powershell
+      run: |
+        $distDir = "dist\WhoIsSpy"
+        Copy-Item -Path "game" -Destination "$distDir\game" -Recurse -Force
+        Copy-Item -Path "gui" -Destination "$distDir\gui" -Recurse -Force
+        Copy-Item -Path "config.json" -Destination $distDir -Force
+        
+    - name: Clean Up Unnecessary Files
+      shell: powershell
+      run: |
+        $runtimeDir = "dist\WhoIsSpy\runtime"
+        
+        # Remove __pycache__ directories to save space
+        Get-ChildItem -Path "dist\WhoIsSpy" -Recurse -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force
+        
+    - name: Setup PyStand Launcher (64-bit)
+      shell: powershell
+      run: |
+        $url = "https://github.com/skywind3000/PyStand/releases/download/1.1.5/PyStand-v1.1.5-exe.zip"
+        $output = "PyStand.zip"
+        
+        $maxRetries = 3
+        $retryCount = 0
+        $success = $false
+
+        while (-not $success -and $retryCount -lt $maxRetries) {
+            Write-Host "Downloading PyStand... Attempt $($retryCount + 1)"
+            curl.exe -L -f -s -S -o $output $url
+            
+            if ($LASTEXITCODE -eq 0) {
+                $success = $true
+            } else {
+                Write-Host "Download failed with exit code $LASTEXITCODE"
+                $retryCount++
+                Start-Sleep -Seconds 5
+            }
+        }
+
+        if (-not $success) {
+            Write-Error "Failed to download PyStand after $maxRetries attempts."
+            exit 1
+        }
+        
+        Expand-Archive -Path $output -DestinationPath "pystand_temp" -Force
+        
+        # Look for x64 GUI version of PyStand (hides console window)
+        $pystandExe = Get-ChildItem -Path "pystand_temp" -Recurse -Filter "PyStand.exe" | Where-Object { $_.Directory.Name -like "*win64-GUI*" } | Select-Object -First 1
+        
+        if (-not $pystandExe) {
+            Write-Error "Could not find 64-bit GUI PyStand.exe in the downloaded archive."
+            exit 1
+        }
+        
+        Write-Host "Using PyStand executable: $($pystandExe.FullName)"
+        
+        Copy-Item $pystandExe.FullName "dist\WhoIsSpy\WhoIsSpy.exe"
+        
+        # Embed main.py content into the corresponding .int file next to the PyStand executable
+        $mainContent = Get-Content "main.py" -Raw
+        Set-Content -Path "dist\WhoIsSpy\WhoIsSpy.int" -Value $mainContent -Encoding UTF8
+        
+        Remove-Item -Path "pystand_temp" -Recurse -Force
+        Remove-Item -Path $output -Force
+        
+    - name: Upload Dist
+      uses: actions/upload-artifact@v4
+      with:
+        name: WhoIsSpy-Portable-x64
+        path: dist/WhoIsSpy
