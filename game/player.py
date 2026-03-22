@@ -122,5 +122,13 @@ class Player:
         content = response_data["choices"][0]["message"]["content"]
         self.messages.append({"role": "assistant", "content": content})
         
-        match = re.search(r'(\d+)', content)
-        return int(match.group(1)) if match else 0
+        match = re.search(r'\*\*投票[:：]?\*\*\s*\[?(\d+)', content)
+        if not match:
+            match = re.search(r'投(?:票|给|票给)?[：:]?\s*\[?(\d+)', content)
+            
+        if match:
+            return int(match.group(1))
+            
+        # Fallback to the last number mentioned, as the final decision usually comes at the end
+        matches = re.findall(r'(\d+)', content)
+        return int(matches[-1]) if matches else 0
