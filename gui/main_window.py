@@ -185,19 +185,17 @@ class WhoIsSpyApp(QMainWindow):
         self.status_label.setText("游戏开始...")
         for i, btn in self.player_widgets.items():
             btn.setText(f"玩家 {i}\n(等待分配...)")
-        self.thread = threading.Thread(target=self.run_worker, args=(civ_word, spy_word, selected_models), daemon=True)
-        self.thread.start()
-
-    def run_worker(self, civ_word, spy_word, selected_models):
+        
+        # 实例化 GameWorker 并启动 QThread
         self.worker = GameWorker(civ_word, spy_word, selected_models)
-        self.worker.signals.log_signal.connect(self.append_log)
-        self.worker.signals.status_signal.connect(self.update_status)
-        self.worker.signals.panel_signal.connect(self.append_panel)
-        self.worker.signals.finished_signal.connect(self.game_finished)
-        self.worker.signals.ask_retry_signal.connect(self.ask_retry)
-        self.worker.signals.init_signal.connect(self.update_players)
-        self.worker.signals.highlight_signal.connect(self.highlight_player)
-        self.worker.run()
+        self.worker.log_signal.connect(self.append_log)
+        self.worker.status_signal.connect(self.update_status)
+        self.worker.panel_signal.connect(self.append_panel)
+        self.worker.finished_signal.connect(self.game_finished)
+        self.worker.ask_retry_signal.connect(self.ask_retry)
+        self.worker.init_signal.connect(self.update_players)
+        self.worker.highlight_signal.connect(self.highlight_player)
+        self.worker.start()
 
     def stop_game(self):
         if self.worker:
