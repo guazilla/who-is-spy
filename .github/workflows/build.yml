@@ -33,10 +33,41 @@ jobs:
         $content = Get-Content $pthFile
         $content = $content -replace "#import site", "import site"
         $content | Set-Content $pthFile
+        Add-Content -Path $pthFile -Value "site-packages"
         
         Write-Host "Installing dependencies..."
         # Install PyQt6 and other requirements. We don't use --no-deps here because PyQt6 needs its internal Qt dependencies.
         pip install -r requirements.txt --target dist\WhoIsSpy\runtime\site-packages --no-compile
+        
+    - name: Compile Source to PYD (Nuitka)
+      shell: powershell
+      run: |
+        Write-Host "Installing Nuitka and dependencies..."
+        pip install nuitka
+        pip install -r requirements.txt
+        
+        $targets = "game", "gui"
+        foreach ($dir in $targets) {
+            $pyFiles = Get-ChildItem -Path $dir -Recurse -Filter "*.py" | Where-Object { $_.Name -ne "__init__.py" }
+            foreach ($file in $pyFiles) {
+                Write-Host "Nuitka Compiling: $($file.FullName)"
+                $parentDir = $file.DirectoryName
+                $fileName = $file.Name
+                
+                Push-Location $parentDir
+                # Compile to .pyd
+                python -m nuitka --module --remove-output --no-pyi-file $fileName
+                
+                if ($LASTEXITCODE -eq 0) {
+                    Remove-Item $fileName
+                    Write-Host "Success: $fileName -> .pyd"
+                } else {
+                    Write-Error "Failed to compile: $($file.FullName)"
+                    exit 1
+                }
+                Pop-Location
+            }
+        }
         
     - name: Copy Application Source
       shell: powershell
